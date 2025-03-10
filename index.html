@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Une To-Do List intelligente avec Glassmorphism et support hors ligne">
+  <meta name="theme-color" content="#4b5e95">
+  <title data-i18n="title">SmartFlow</title>
+  
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Montserrat:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="icon" href="/icon.png" sizes="192x192">
+  <link rel="apple-touch-icon" href="/icon.png">
+
+  <!-- Scripts CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/fr.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ar.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.4/gsap.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.4/Draggable.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+
+  <!-- Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js')
+          .then(reg => console.log('Service Worker registered'))
+          .catch(err => console.log('Service Worker registration failed:', err));
+      });
+    }
+  </script>
+</head>
+<body>
+  <div class="glass-container" role="main">
+    <header>
+      <h1 data-i18n="title">SmartFlow</h1>
+      <div class="header-controls">
+        <button id="toggle-theme" title="Mode Sombre/Clair" aria-label="Basculer entre mode sombre et clair"><i class="fas fa-moon"></i></button>
+        <button id="toggle-view" title="Changer de vue" aria-label="Changer l'affichage des tâches"><i class="fas fa-th-list"></i></button>
+        <button id="customize-btn" title="Personnaliser" aria-label="Ouvrir les options de personnalisation"><i class="fas fa-paint-brush"></i></button>
+        <button id="notifications-btn" title="Activer les notifications" aria-label="Activer/Désactiver les notifications"><i class="fas fa-bell"></i></button>
+        <select id="language-selector" aria-label="Sélectionner la langue">
+          <option value="fr">Français</option>
+          <option value="en">English</option>
+          <option value="ar">العربية</option>
+        </select>
+      </div>
+    </header>
+    <main>
+      <section class="task-form glass-card" aria-label="Formulaire d'ajout de tâche">
+        <form id="task-form">
+          <label for="task-input" class="visually-hidden">Ajouter une tâche</label>
+          <input type="text" id="task-input" data-i18n-placeholder="addTaskPlaceholder" placeholder="Ajouter une tâche..." maxlength="200" required aria-required="true">
+          <div class="date-container">
+            <input type="text" id="task-date" placeholder="Choisir une date/heure..." readonly aria-label="Date et heure de la tâche">
+            <span class="calendar-icon" aria-label="Ouvrir le calendrier"><i class="fas fa-calendar-alt"></i></span>
+          </div>
+          <label for="task-priority" class="visually-hidden">Priorité de la tâche</label>
+          <select id="task-priority" aria-label="Priorité de la tâche">
+            <option value="low" data-i18n="lowPriority">Faible</option>
+            <option value="medium" data-i18n="mediumPriority" selected>Moyenne</option>
+            <option value="high" data-i18n="highPriority">Élevée</option>
+          </select>
+          <label for="task-category" class="visually-hidden">Catégorie de la tâche</label>
+          <select id="task-category" aria-label="Catégorie de la tâche">
+            <option value="work" data-i18n="work">Travail</option>
+            <option value="personal" data-i18n="personal">Personnel</option>
+            <option value="urgent" data-i18n="urgent">Urgent</option>
+            <option value="other" data-i18n="other">Autre</option>
+          </select>
+          <label for="task-recurrence" class="visually-hidden">Récurrence de la tâche</label>
+          <select id="task-recurrence" aria-label="Récurrence de la tâche">
+            <option value="none" data-i18n="noRecurrence">Aucune</option>
+            <option value="daily" data-i18n="daily">Quotidien</option>
+            <option value="weekly" data-i18n="weekly">Hebdomadaire</option>
+            <option value="monthly" data-i18n="monthly">Mensuel</option>
+          </select>
+          <button type="submit" id="add-task" class="add-task-btn" data-i18n="addTask" aria-label="Ajouter la tâche">Ajouter</button>
+        </form>
+      </section>
+      <section class="task-controls glass-card" aria-label="Contrôles des tâches">
+        <div class="filters">
+          <button data-filter="all" class="active" data-i18n="allTasks" aria-label="Afficher toutes les tâches">Tout</button>
+          <button data-filter="pending" data-i18n="pendingTasks" aria-label="Afficher les tâches en cours">En cours</button>
+          <button data-filter="completed" data-i18n="completedTasks" aria-label="Afficher les tâches terminées">Terminées</button>
+        </div>
+        <label for="search-input" class="visually-hidden">Rechercher une tâche</label>
+        <input type="text" id="search-input" data-i18n-placeholder="searchPlaceholder" placeholder="Rechercher..." aria-label="Rechercher une tâche">
+        <label for="sort-selector" class="visually-hidden">Trier les tâches</label>
+        <select id="sort-selector" aria-label="Trier les tâches">
+          <option value="default" data-i18n="sortDefault">Par défaut</option>
+          <option value="date-asc" data-i18n="sortDateAsc">Date croissante</option>
+          <option value="date-desc" data-i18n="sortDateDesc">Date décroissante</option>
+        </select>
+        <button id="download-pdf" data-i18n="downloadPDF" aria-label="Télécharger en PDF"><i class="fas fa-file-pdf"></i> PDF</button>
+        <button id="clear-all" data-i18n="clearAll" aria-label="Effacer toutes les tâches"><i class="fas fa-trash-alt"></i> Tout Effacer</button>
+      </section>
+      <section class="task-list glass-card" aria-label="Liste des tâches">
+        <div id="task-list" data-view="list" role="list"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modal de confirmation -->
+  <div id="modal-overlay" class="modal-overlay" aria-hidden="true" role="dialog">
+    <div class="modal glass-card">
+      <p id="modal-message"></p>
+      <div class="modal-buttons">
+        <button id="modal-confirm" data-i18n="confirm" aria-label="Confirmer l'action">Confirmer</button>
+        <button id="modal-cancel" data-i18n="cancel" aria-label="Annuler l'action">Annuler</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de personnalisation -->
+  <div id="customize-modal" class="modal-overlay" aria-hidden="true" role="dialog">
+    <div class="modal glass-card">
+      <h3 data-i18n="customize">Personnalisation</h3>
+      <label for="custom-theme-color">Thème couleur: <input type="color" id="custom-theme-color" value="#4b5e95" aria-label="Choisir la couleur du thème"></label>
+      <label for="custom-font">Police: 
+        <select id="custom-font" aria-label="Choisir la police">
+          <option value="Roboto">Roboto</option>
+          <option value="Arial">Arial</option>
+          <option value="Montserrat">Montserrat</option>
+        </select>
+      </label>
+      <label for="custom-background">Fond: <input type="file" id="custom-background" accept="image/*" aria-label="Choisir une image de fond"></label>
+      <label for="custom-glass-opacity">Opacité Glass: <input type="range" id="custom-glass-opacity" min="0" max="1" step="0.1" value="0.05" aria-label="Ajuster l'opacité du glassmorphism"></label>
+      <button id="customize-save" data-i18n="save" aria-label="Sauvegarder les personnalisations">Sauvegarder</button>
+    </div>
+  </div>
+
+  <!-- Template pour les tâches -->
+  <template id="task-template">
+    <li class="glass-task" data-id="" role="listitem">
+      <span class="task-priority" aria-label="Priorité"></span>
+      <span class="due-date" aria-label="Date d'échéance"></span>
+      <span class="task-text" aria-label="Description de la tâche"></span>
+      <span class="task-category" aria-label="Catégorie"></span>
+      <span class="task-recurrence" aria-label="Récurrence"></span>
+      <div class="task-buttons">
+        <button class="toggle-button" aria-label="Marquer comme terminé"><i class="fas fa-check"></i></button>
+        <button class="edit-button" aria-label="Modifier la tâche"><i class="fas fa-edit"></i></button>
+        <button class="delete-button" aria-label="Supprimer la tâche"><i class="fas fa-trash"></i></button>
+      </div>
+    </li>
+  </template>
+
+  <script src="/script.js" defer></script>
+</body>
+</html>
