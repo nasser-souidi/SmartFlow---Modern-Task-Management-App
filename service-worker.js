@@ -1,4 +1,4 @@
-const CACHE_NAME = "todo-cache-v2";
+const CACHE_NAME = "todo-cache-v3";
 const urlsToCache = [
   "/",
   "/index.html",
@@ -6,6 +6,10 @@ const urlsToCache = [
   "/script.js",
   "/manifest.json",
   "/icon.png",
+  "/node_modules/flatpickr/dist/flatpickr.min.css",
+  "/node_modules/flatpickr/dist/flatpickr.min.js",
+  "/node_modules/flatpickr/dist/l10n/fr.js",
+  "/node_modules/flatpickr/dist/l10n/ar.js",
   "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css",
   "https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Montserrat:wght@400;500;700&display=swap",
   "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.4/gsap.min.js",
@@ -13,108 +17,71 @@ const urlsToCache = [
   "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
 ];
 
+const IS_DEV = self.location.hostname === "127.0.0.1" || self.location.hostname === "localhost";
+
 self.addEventListener("install", (event) => {
   console.log("[Service Worker] Installation");
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       console.log("[Service Worker] Mise en cache des ressources");
       return cache.addAll(urlsToCache);
-    }).then(() => self.skipWaiting())
+    }).catch((error) => console.error("[Service Worker] Erreur de mise en cache:", error))
   );
 });
 
 self.addEventListener("activate", (event) => {
   console.log("[Service Worker] Activation");
-  const cacheWhitelist = [CACHE_NAME];
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (!cacheWhitelist.includes(cacheName)) {
-            console.log("[Service Worker] Suppression de l’ancien cache:", cacheName);
+          if (cacheName !== CACHE_NAME) {
+            console.log("[Service Worker] Suppression de l'ancien cache:", cacheName);
             return caches.delete(cacheName);
           }
         })
       );
-    }).then(() => self.clients.claim())
+    })
   );
+  return self.clients.claim();
 });
 
 self.addEventListener("fetch", (event) => {
+  if (IS_DEV) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          return caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, response.clone());
+            return response;
+          });
+        })
+        .catch(() => caches.match("/index.html"))
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((response) => {
-      if (response) {
-        console.log("[Service Worker] Ressource trouvée dans le cache:", event.request.url);
-        return response;
-      }
-      console.log("[Service Worker] Récupération réseau:", event.request.url);
-      return fetch(event.request).then((networkResponse) => {
+      return response || fetch(event.request).then((networkResponse) => {
         if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== "basic") {
           return networkResponse;
         }
         const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        });
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
         return networkResponse;
       });
-    }).catch(() => {
-      console.log("[Service Worker] Échec réseau, réponse hors ligne");
-      return caches.match("/index.html");
     })
   );
 });
 
-const promisifyRequest = (request) => {
-  return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-};
-
-const openDB = () => {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open("TaskDB", 2);
-    request.onupgradeneeded = (event) => {
-      const db = event.target.result;
-      if (!db.objectStoreNames.contains("tasks")) {
-        db.createObjectStore("tasks", { keyPath: "id" });
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-};
-
-self.addEventListener("sync", (event) => {
-  if (event.tag === "sync-tasks") {
-    console.log("[Service Worker] Synchronisation en arrière-plan déclenchée");
-    event.waitUntil(syncTasks());
+self.addEventListener("message", (event) => {
+  if (event.data.type === "UPDATE_THEME_COLOR") {
+    console.log("[Service Worker] Mise à jour de la couleur du thème:", event.data.themeColor);
   }
 });
-
-const syncTasks = async () => {
-  try {
-    const db = await openDB();
-    const tx = db.transaction("tasks", "readonly");
-    const store = tx.objectStore("tasks");
-    const tasks = await promisifyRequest(store.getAll());
-
-    const updatedTasks = tasks; // Simulation locale directe
-
-    const writeTx = db.transaction("tasks", "readwrite");
-    const writeStore = writeTx.objectStore("tasks");
-    updatedTasks.forEach(task => writeStore.put(task));
-    await writeTx.commit();
-
-    console.log("[Service Worker] Tâches synchronisées:", updatedTasks);
-
-    self.clients.matchAll().then((clients) => {
-      clients.forEach((client) => {
-        client.postMessage({ type: "TASKS_SYNCED", tasks: updatedTasks });
-      });
-    });
-  } catch (error) {
-    console.error("[Service Worker] Échec de la synchronisation:", error);
-  }
-};

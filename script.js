@@ -1,782 +1,576 @@
-document.addEventListener("DOMContentLoaded", () => {
-  const MAX_TASKS = 1000;
-  const VERSION = "v2.0.0";
+// Initialisation des éléments
+const elements = {
+  taskForm: document.getElementById("task-form"),
+  taskInput: document.getElementById("task-input"),
+  taskDate: document.getElementById("task-date"),
+  taskPriority: document.getElementById("task-priority"),
+  taskCategory: document.getElementById("task-category"),
+  taskRecurrence: document.getElementById("task-recurrence"),
+  taskList: document.getElementById("task-list"),
+  toggleTheme: document.getElementById("toggle-theme"),
+  toggleView: document.getElementById("toggle-view"),
+  notificationsBtn: document.getElementById("notifications-btn"),
+  reloadBtn: document.getElementById("reload-btn"),
+  languageSelector: document.getElementById("language-selector"),
+  customizeBtnTop: document.getElementById("customize-btn-top"),
+  customizeModal: document.getElementById("customize-modal"),
+  customThemeColor: document.getElementById("custom-theme-color"),
+  customFont: document.getElementById("custom-font"),
+  customBackground: document.getElementById("custom-background"),
+  customGlassOpacity: document.getElementById("custom-glass-opacity"),
+  customizeSave: document.getElementById("customize-save"),
+  filterButtons: document.querySelectorAll(".filters button"),
+  searchInput: document.getElementById("search-input"),
+  sortSelector: document.getElementById("sort-selector"),
+  downloadPdf: document.getElementById("download-pdf"),
+  clearAll: document.getElementById("clear-all"),
+  modalOverlay: document.getElementById("modal-overlay"),
+  modalMessage: document.getElementById("modal-message"),
+  modalConfirm: document.getElementById("modal-confirm"),
+  modalCancel: document.getElementById("modal-cancel"),
+};
 
-  const elements = {
-    taskForm: document.getElementById("task-form"),
-    taskInput: document.getElementById("task-input"),
-    taskDate: document.getElementById("task-date"),
-    taskPriority: document.getElementById("task-priority"),
-    taskCategory: document.getElementById("task-category"),
-    taskRecurrence: document.getElementById("task-recurrence"),
-    addTaskBtn: document.getElementById("add-task"),
-    taskList: document.getElementById("task-list"),
-    filterButtons: document.querySelectorAll(".filters button"),
-    toggleThemeBtn: document.getElementById("toggle-theme"),
-    toggleViewBtn: document.getElementById("toggle-view"),
-    customizeBtn: document.getElementById("customize-btn"),
-    notificationsBtn: document.getElementById("notifications-btn"),
-    searchInput: document.getElementById("search-input"),
-    sortSelector: document.getElementById("sort-selector"),
-    downloadPDF: document.getElementById("download-pdf"),
-    clearAllBtn: document.getElementById("clear-all"),
-    modalOverlay: document.getElementById("modal-overlay"),
-    modalMessage: document.getElementById("modal-message"),
-    modalConfirm: document.getElementById("modal-confirm"),
-    modalCancel: document.getElementById("modal-cancel"),
-    customizeModal: document.getElementById("customize-modal"),
-    customThemeColor: document.getElementById("custom-theme-color"),
-    customFont: document.getElementById("custom-font"),
-    customBackground: document.getElementById("custom-background"),
-    customGlassOpacity: document.getElementById("custom-glass-opacity"),
-    customizeSave: document.getElementById("customize-save"),
-    languageSelector: document.getElementById("language-selector"),
-  };
-
-  const requiredElements = ['taskForm', 'taskList', 'taskInput', 'addTaskBtn', 'toggleViewBtn', 'customGlassOpacity'];
-  for (const el of requiredElements) {
-    if (!elements[el]) {
-      console.error(`Erreur : ${el} non trouvé dans le DOM`);
-      return;
+// Initialisation de Flatpickr avec prise en charge multi-langue
+let fpInstance = flatpickr(elements.taskDate, {
+  enableTime: true,
+  dateFormat: "Y-m-d H:i",
+  minDate: "today",
+  minTime: new Date().getHours() + ":" + new Date().getMinutes(),
+  position: "below",
+  positionElement: elements.taskDate,
+  static: true,
+  onOpen: function(selectedDates, dateStr, instance) {
+    const now = new Date();
+    if (instance.selectedDates.length === 0) {
+      instance.set("minTime", now.getDate() === instance.currentDate.getDate() ? now.getHours() + ":" + now.getMinutes() : "00:00");
     }
+  },
+});
+
+// Liste des tâches et paramètres
+let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+let currentFilter = "all";
+let currentSort = "default";
+let notificationsEnabled = false;
+
+// Traductions de base
+const translations = {
+  fr: {
+    title: "SmartFlow",
+    addTaskPlaceholder: "Ajouter une tâche...",
+    datePlaceholder: "Choisir une date/heure...",
+    lowPriority: "Faible",
+    mediumPriority: "Moyenne",
+    highPriority: "Élevée",
+    work: "Travail",
+    personal: "Personnel",
+    urgent: "Urgent",
+    other: "Autre",
+    noRecurrence: "Aucune",
+    daily: "Quotidien",
+    weekly: "Hebdomadaire",
+    monthly: "Mensuel",
+    addTask: "Ajouter",
+    allTasks: "Tout",
+    pendingTasks: "En cours",
+    completedTasks: "Terminées",
+    searchPlaceholder: "Rechercher...",
+    sortDefault: "Par défaut",
+    sortDateAsc: "Date croissante",
+    sortDateDesc: "Date décroissante",
+    downloadPDF: "PDF",
+    clearAll: "Tout Effacer",
+    confirm: "Confirmer",
+    cancel: "Annuler",
+    customize: "Personnalisation",
+    save: "Sauvegarder",
+    noTasks: "Aucune tâche à exporter",
+    noTasksToClear: "Aucune tâche à effacer",
+    dateRequired: "La date et l'heure sont obligatoires et doivent être dans le futur",
+    editTask: "Modifier la tâche",
+    ok: "OK",
+  },
+  en: {
+    title: "SmartFlow",
+    addTaskPlaceholder: "Add a task...",
+    datePlaceholder: "Pick a date/time...",
+    lowPriority: "Low",
+    mediumPriority: "Medium",
+    highPriority: "High",
+    work: "Work",
+    personal: "Personal",
+    urgent: "Urgent",
+    other: "Other",
+    noRecurrence: "None",
+    daily: "Daily",
+    weekly: "Weekly",
+    monthly: "Monthly",
+    addTask: "Add",
+    allTasks: "All",
+    pendingTasks: "Pending",
+    completedTasks: "Completed",
+    searchPlaceholder: "Search...",
+    sortDefault: "Default",
+    sortDateAsc: "Date Ascending",
+    sortDateDesc: "Date Descending",
+    downloadPDF: "PDF",
+    clearAll: "Clear All",
+    confirm: "Confirm",
+    cancel: "Cancel",
+    customize: "Customize",
+    save: "Save",
+    noTasks: "No tasks to export",
+    noTasksToClear: "No tasks to clear",
+    dateRequired: "Date and time are required and must be in the future",
+    editTask: "Edit task",
+    ok: "OK",
+  },
+  ar: {
+    title: "سمارت فلو",
+    addTaskPlaceholder: "أضف مهمة...",
+    datePlaceholder: "اختر تاريخ/وقت...",
+    lowPriority: "منخفض",
+    mediumPriority: "متوسط",
+    highPriority: "عالي",
+    work: "عمل",
+    personal: "شخصي",
+    urgent: "عاجل",
+    other: "آخر",
+    noRecurrence: "لا تكرار",
+    daily: "يومي",
+    weekly: "أسبوعي",
+    monthly: "شهري",
+    addTask: "أضف",
+    allTasks: "الكل",
+    pendingTasks: "قيد الانتظار",
+    completedTasks: "مكتمل",
+    searchPlaceholder: "بحث...",
+    sortDefault: "افتراضي",
+    sortDateAsc: "تاريخ تصاعدي",
+    sortDateDesc: "تاريخ تنازلي",
+    downloadPDF: "PDF",
+    clearAll: "مسح الكل",
+    confirm: "تأكيد",
+    cancel: "إلغاء",
+    customize: "تخصيص",
+    save: "حفظ",
+    noTasks: "لا توجد مهام للتصدير",
+    noTasksToClear: "لا توجد مهام للمسح",
+    dateRequired: "التاريخ والوقت مطلوبان ويجب أن يكونا في المستقبل",
+    editTask: "تعديل المهمة",
+    ok: "موافق",
+  },
+};
+
+// Mettre à jour la langue et le calendrier
+function updateLanguage(lang) {
+  document.documentElement.lang = lang;
+  document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+  fpInstance.set("locale", lang);
+  fpInstance.redraw();
+
+  const calendarContainer = fpInstance.calendarContainer;
+  if (calendarContainer) {
+    calendarContainer.style.direction = lang === "ar" ? "rtl" : "ltr";
   }
 
-  let tasks = [];
-  let currentFilter = "all";
-  let currentView = "list";
-  let currentLanguage = localStorage.getItem("language") || "fr";
-  let isNotificationsEnabled = localStorage.getItem("notifications") === "true" || false;
-  let notificationTimeouts = new Map();
-  let hasUserInteracted = false;
+  Object.keys(translations[lang]).forEach((key) => {
+    const elementsWithKey = document.querySelectorAll(`[data-i18n="${key}"]`);
+    elementsWithKey.forEach((el) => (el.textContent = translations[lang][key]));
+    const placeholders = document.querySelectorAll(`[data-i18n-placeholder="${key}"]`);
+    placeholders.forEach((el) => el.setAttribute("placeholder", translations[lang][key]));
+  });
 
-  document.addEventListener("click", () => hasUserInteracted = true, { once: true });
+  localStorage.setItem("lang", lang);
+  renderTasks();
+}
 
-  const promisifyRequest = (request) => {
-    return new Promise((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
+// Ajouter une tâche
+function addTask(event) {
+  event.preventDefault();
+  event.stopPropagation();
+
+  const taskText = elements.taskInput.value.trim();
+  const taskDate = elements.taskDate.value;
+  const taskPriority = elements.taskPriority.value;
+  const taskCategory = elements.taskCategory.value;
+  const taskRecurrence = elements.taskRecurrence.value;
+
+  if (!taskText || !taskDate) {
+    showErrorModal(translations[document.documentElement.lang].dateRequired || "La date et l'heure sont obligatoires et doivent être dans le futur");
+    return;
+  }
+
+  const selectedDate = new Date(taskDate);
+  const now = new Date();
+  if (selectedDate <= now) {
+    showErrorModal(translations[document.documentElement.lang].dateRequired || "La date et l'heure sont obligatoires et doivent être dans le futur");
+    return;
+  }
+
+  const task = {
+    id: Date.now(),
+    text: taskText,
+    date: taskDate,
+    priority: taskPriority,
+    category: taskCategory,
+    recurrence: taskRecurrence,
+    completed: false,
   };
 
-  const openDB = () => {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open("TaskDB", 2);
-      request.onupgradeneeded = (event) => {
-        const db = event.target.result;
-        if (!db.objectStoreNames.contains("tasks")) {
-          db.createObjectStore("tasks", { keyPath: "id" });
-        }
-      };
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-  };
+  tasks.push(task);
+  localStorage.setItem("tasks", JSON.stringify(tasks));
+  renderTasks();
 
-  const loadTasksFromDB = async () => {
-    try {
-      const db = await openDB();
-      const tx = db.transaction("tasks", "readwrite"); // Changed to readwrite for migration
-      const store = tx.objectStore("tasks");
-      const request = store.getAll();
-      tasks = (await promisifyRequest(request)) || [];
-      // Migrate old date formats
-      tasks = tasks.map(task => {
-        if (!task.date.includes("T")) { // Old "dd-mm-YYYY HH:mm" format
-          const dateObj = flatpickr.parseDate(task.date, "d-m-Y H:i");
-          task.date = dateObj ? dateObj.toISOString() : new Date().toISOString();
-          store.put(task); // Update in DB
-        }
-        return task;
-      });
-      await tx.commit();
-      renderTasks();
-      if (isNotificationsEnabled) tasks.forEach(task => scheduleNotification(task));
-    } catch (error) {
-      console.error("Erreur chargement tâches:", error);
-      showModal("Erreur de chargement des tâches.");
-    }
-  };
+  elements.taskForm.reset();
+  elements.taskDate._flatpickr.clear();
+}
 
-  const saveTaskToDB = async (task) => {
-    try {
-      const db = await openDB();
-      const tx = db.transaction("tasks", "readwrite");
-      const store = tx.objectStore("tasks");
-      await promisifyRequest(store.put(task));
-      await tx.commit();
-      triggerSync();
-    } catch (error) {
-      console.error("Erreur sauvegarde tâche:", error);
-      showModal("Erreur lors de la sauvegarde.");
-    }
-  };
+// Ajouter une tâche à la liste
+function appendTaskToList(task) {
+  const template = document.getElementById("task-template").content.cloneNode(true);
+  const taskElement = template.querySelector(".glass-task");
 
-  const deleteTaskFromDB = async (id) => {
-    try {
-      const db = await openDB();
-      const tx = db.transaction("tasks", "readwrite");
-      const store = tx.objectStore("tasks");
-      await promisifyRequest(store.delete(id));
-      await tx.commit();
-      triggerSync();
-    } catch (error) {
-      console.error("Erreur suppression tâche:", error);
-      showModal("Erreur lors de la suppression.");
-    }
-  };
+  taskElement.dataset.id = task.id;
+  taskElement.querySelector(".task-priority").textContent = task.priority.charAt(0).toUpperCase();
+  taskElement.querySelector(".task-priority").classList.add(`priority-${task.priority}`);
+  taskElement.querySelector(".due-date").textContent = task.date || translations[document.documentElement.lang].noDate || "Pas de date";
+  taskElement.querySelector(".task-text").textContent = task.text;
+  taskElement.querySelector(".task-category").textContent = translations[document.documentElement.lang][task.category] || task.category;
+  taskElement.querySelector(".task-recurrence").textContent = translations[document.documentElement.lang][task.recurrence] || task.recurrence;
 
-  const addTask = async (e) => {
-    e.preventDefault();
-    if (tasks.length >= MAX_TASKS) return showModal(localizedMessages[currentLanguage].maxTasks);
-    
-    const text = elements.taskInput.value.trim();
-    const selectedDate = fpInstance.selectedDates[0]; // Get Date object directly from Flatpickr
-    if (!text) return showModal("Veuillez entrer une tâche.");
-    if (!selectedDate || selectedDate < new Date()) return showModal("Veuillez entrer une date/heure future valide.");
+  if (task.completed) taskElement.classList.add("completed");
+  if (task.date && new Date(task.date) < new Date() && !task.completed) taskElement.querySelector(".due-date").classList.add("overdue");
 
-    const suggestedPriority = suggestPriority(text);
-    const task = {
-      id: Date.now().toString(),
-      text,
-      date: selectedDate.toISOString(), // Store as ISO string
-      priority: elements.taskPriority.value || suggestedPriority,
-      category: elements.taskCategory.value || "other",
-      recurrence: elements.taskRecurrence.value || "none",
-      completed: false,
-      createdAt: new Date().toISOString(),
-    };
+  taskElement.querySelector(".toggle-button").addEventListener("click", () => toggleTask(task.id));
+  taskElement.querySelector(".edit-button").addEventListener("click", () => editTask(task.id));
+  taskElement.querySelector(".delete-button").addEventListener("click", () => deleteTask(task.id));
 
-    tasks.push(task);
-    await saveTaskToDB(task);
-    renderTasks();
-    handleRecurrence(task); // Line 142
-    resetForm();
+  return taskElement;
+}
 
-    if (typeof gsap !== "undefined") {
-      requestAnimationFrame(() => {
-        gsap.from(`[data-id="${task.id}"]`, { y: -30, opacity: 0, duration: 0.2, ease: "power2.out" });
-      });
-    }
+// Rendre les tâches
+function renderTasks() {
+  elements.taskList.innerHTML = "";
+  let filteredTasks = tasks.filter((task) => {
+    if (currentFilter === "all") return true;
+    if (currentFilter === "pending") return !task.completed;
+    if (currentFilter === "completed") return task.completed;
+  });
 
-    if (isNotificationsEnabled) {
-      scheduleNotification(task);
-      checkOverdueTasks();
-    }
+  const searchTerm = elements.searchInput.value.toLowerCase();
+  filteredTasks = filteredTasks.filter((task) => task.text.toLowerCase().includes(searchTerm));
 
-    elements.taskInput.focus();
-  };
+  if (currentSort === "date-asc") {
+    filteredTasks.sort((a, b) => new Date(a.date || "9999-12-31") - new Date(b.date || "9999-12-31"));
+  } else if (currentSort === "date-desc") {
+    filteredTasks.sort((a, b) => new Date(b.date || "0000-01-01") - new Date(a.date || "0000-01-01"));
+  }
 
-  const suggestPriority = (text) => {
-    const urgencyKeywords = {
-      high: ["urgent", "maintenant", "immédiat", "now", "immediately"],
-      medium: ["bientôt", "important", "vite", "soon", "important", "quick"],
-      low: ["plus tard", "facile", "optionnel", "later", "easy", "optional"]
-    };
-    text = text.toLowerCase();
-    for (const [priority, keywords] of Object.entries(urgencyKeywords)) {
-      if (keywords.some(keyword => text.includes(keyword))) return priority;
-    }
-    return "medium";
-  };
+  filteredTasks.forEach((task) => elements.taskList.appendChild(appendTaskToList(task)));
+}
 
-  const handleRecurrence = async (task) => {
-    if (task.recurrence === "none") return;
-    const nextDate = new Date(task.date); // task.date is now ISO format
-    if (isNaN(nextDate.getTime())) {
-      console.error("Invalid date in handleRecurrence:", task.date);
-      return; // Prevent further processing
-    }
-    switch (task.recurrence) {
-      case "daily": nextDate.setDate(nextDate.getDate() + 1); break;
-      case "weekly": nextDate.setDate(nextDate.getDate() + 7); break;
-      case "monthly": nextDate.setMonth(nextDate.getMonth() + 1); break;
-    }
-    const newTask = { 
-      ...task, 
-      id: Date.now().toString(), 
-      date: nextDate.toISOString(), // Line 180: Now safe
-      completed: false 
-    };
-    tasks.push(newTask);
-    await saveTaskToDB(newTask);
-    renderTasks();
-    if (isNotificationsEnabled) scheduleNotification(newTask);
-  };
-
-  const toggleTask = async (task, li) => {
+// Basculer l'état d'une tâche
+function toggleTask(id) {
+  const task = tasks.find(t => t.id === id);
+  if (task) {
     task.completed = !task.completed;
-    await saveTaskToDB(task);
+    localStorage.setItem("tasks", JSON.stringify(tasks));
     renderTasks();
+    if (notificationsEnabled && task.completed) notify("Tâche terminée", task.text);
+  }
+}
 
-    if (task.completed && isNotificationsEnabled) {
-      const timeoutId = notificationTimeouts.get(task.id);
-      if (timeoutId) clearTimeout(timeoutId);
-      notificationTimeouts.delete(task.id);
-    }
-    if (isNotificationsEnabled) checkOverdueTasks();
-  };
+// Modifier une tâche
+function editTask(id) {
+  const task = tasks.find(t => t.id === id);
+  if (!task) return;
 
-  const editTask = (task) => {
-    elements.taskInput.value = task.text;
-    elements.taskDate.value = flatpickr.formatDate(new Date(task.date), "d-m-Y H:i"); // Convert ISO back to Flatpickr format
-    elements.taskPriority.value = task.priority;
-    elements.taskCategory.value = task.category;
-    elements.taskRecurrence.value = task.recurrence;
-    elements.addTaskBtn.textContent = localizedMessages[currentLanguage].update;
-    elements.addTaskBtn.onclick = async (e) => {
-      e.preventDefault();
-      const newText = elements.taskInput.value.trim();
-      const selectedDate = fpInstance.selectedDates[0];
-      if (!newText || !selectedDate || selectedDate < new Date()) return showModal("Veuillez entrer une tâche et une date/heure valide.");
-      task.text = newText;
-      task.date = selectedDate.toISOString();
-      task.priority = elements.taskPriority.value;
-      task.category = elements.taskCategory.value;
-      task.recurrence = elements.taskRecurrence.value;
-      await saveTaskToDB(task);
-      renderTasks();
-      resetForm();
-      if (isNotificationsEnabled) {
-        const timeoutId = notificationTimeouts.get(task.id);
-        if (timeoutId) clearTimeout(timeoutId);
-        scheduleNotification(task);
-        checkOverdueTasks();
-      }
-    };
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  elements.taskInput.value = task.text;
+  elements.taskInput.focus();
 
-  const deleteTask = (task) => {
-    showModal(localizedMessages[currentLanguage].deleteConfirm, async () => {
-      tasks = tasks.filter(t => t.id !== task.id);
-      await deleteTaskFromDB(task.id);
-      renderTasks();
-      if (isNotificationsEnabled) {
-        const timeoutId = notificationTimeouts.get(task.id);
-        if (timeoutId) clearTimeout(timeoutId);
-        notificationTimeouts.delete(task.id);
-      }
-    });
-  };
+  elements.taskDate._flatpickr.setDate(task.date);
+  elements.taskPriority.value = task.priority;
+  elements.taskCategory.value = task.category;
+  elements.taskRecurrence.value = task.recurrence;
 
-  const clearAllTasks = () => {
-    if (tasks.length === 0) {
-      showModal(localizedMessages[currentLanguage].noTasks);
-    } else {
-      showModal(localizedMessages[currentLanguage].clearConfirm, async () => {
-        tasks = [];
-        const db = await openDB();
-        const tx = db.transaction("tasks", "readwrite");
-        const store = tx.objectStore("tasks");
-        await promisifyRequest(store.clear());
-        await tx.commit();
-        triggerSync();
-        renderTasks();
-        if (isNotificationsEnabled) notificationTimeouts.forEach((id) => clearTimeout(id));
-        notificationTimeouts.clear();
-      });
-    }
-  };
+  const addButton = elements.taskForm.querySelector("#add-task");
+  addButton.textContent = translations[document.documentElement.lang].editTask || "Modifier la tâche";
+  addButton.dataset.editId = id;
 
-  const renderTasks = () => {
-    elements.taskList.innerHTML = "";
-    const filteredTasks = tasks
-      .filter(t => currentFilter === "all" ? true : currentFilter === "pending" ? !t.completed : t.completed)
-      .filter(t => t.text.toLowerCase().includes(elements.searchInput.value.toLowerCase()))
-      .sort((a, b) => {
-        if (elements.sortSelector.value === "date-asc") return new Date(a.date) - new Date(b.date);
-        if (elements.sortSelector.value === "date-desc") return new Date(b.date) - new Date(a.date);
-        return 0;
-      });
+  elements.taskForm.onsubmit = function(event) {
+    event.preventDefault();
+    const newText = elements.taskInput.value.trim();
+    const newDate = elements.taskDate.value;
 
-    if (filteredTasks.length === 0) {
-      elements.taskList.innerHTML = `<p data-i18n="noTasks">${localizedMessages[currentLanguage].noTasks}</p>`;
+    if (!newText || !newDate) {
+      showErrorModal(translations[document.documentElement.lang].dateRequired || "La date et l'heure sont obligatoires et doivent être dans le futur");
       return;
     }
 
-    elements.taskList.dataset.view = currentView;
-    if (currentView === "kanban") {
-      const pending = filteredTasks.filter(t => !t.completed);
-      const completed = filteredTasks.filter(t => t.completed);
-      const kanbanContainer = document.createElement("div");
-      kanbanContainer.className = "kanban-columns";
-      ["pending", "completed"].forEach(status => {
-        const column = document.createElement("div");
-        column.className = `kanban-column ${status}`;
-        column.innerHTML = `<h3>${localizedMessages[currentLanguage][status + "Tasks"]}</h3>`;
-        const ul = document.createElement("ul");
-        (status === "pending" ? pending : completed).forEach(t => appendTaskToList(t, ul));
-        column.appendChild(ul);
-        kanbanContainer.appendChild(column);
-      });
-      elements.taskList.appendChild(kanbanContainer);
-    } else {
-      filteredTasks.forEach(t => appendTaskToList(t));
+    const selectedDate = new Date(newDate);
+    const now = new Date();
+    if (selectedDate <= now) {
+      showErrorModal(translations[document.documentElement.lang].dateRequired || "La date et l'heure sont obligatoires et doivent être dans le futur");
+      return;
     }
-  };
 
-  const appendTaskToList = (task, container = elements.taskList) => {
-    if (!shouldDisplayTask(task)) return;
-    try {
-      const template = document.getElementById("task-template");
-      if (!template) throw new Error("Template tâche introuvable");
-      const li = template.content.cloneNode(true).querySelector("li");
-      li.dataset.id = task.id;
-      li.classList.toggle("completed", task.completed);
-      li.querySelector(".task-priority").textContent = localizedMessages[currentLanguage][`${task.priority}Priority`][0];
-      li.querySelector(".task-priority").classList.add(`priority-${task.priority}`);
-      li.querySelector(".due-date").textContent = new Date(task.date).toLocaleString(currentLanguage, {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit"
-      });
-      li.querySelector(".due-date").classList.toggle("overdue", new Date(task.date) < new Date() && !task.completed);
-      li.querySelector(".task-text").textContent = task.text;
-      li.querySelector(".task-category").textContent = localizedMessages[currentLanguage][task.category];
-      li.querySelector(".task-recurrence").textContent = localizedMessages[currentLanguage][task.recurrence];
+    task.text = newText;
+    task.date = newDate;
+    task.priority = elements.taskPriority.value;
+    task.category = elements.taskCategory.value;
+    task.recurrence = elements.taskRecurrence.value;
 
-      li.querySelector(".toggle-button").onclick = () => toggleTask(task, li);
-      li.querySelector(".edit-button").onclick = () => editTask(task);
-      li.querySelector(".delete-button").onclick = () => deleteTask(task);
-
-      container.appendChild(li);
-
-      if (typeof Draggable !== "undefined" && currentView === "list") {
-        Draggable.create(li, {
-          type: "y",
-          bounds: elements.taskList,
-          onDragEnd: () => reorderTasks(),
-        });
-      }
-    } catch (error) {
-      console.error("Erreur appendTaskToList:", error);
-    }
-  };
-
-  const shouldDisplayTask = (task) => {
-    return (
-      (currentFilter === "all" || (currentFilter === "pending" && !task.completed) || (currentFilter === "completed" && task.completed)) &&
-      task.text.toLowerCase().includes(elements.searchInput.value.toLowerCase())
-    );
-  };
-
-  const reorderTasks = async () => {
-    const newOrder = Array.from(elements.taskList.children).map(li => tasks.find(t => t.id === li.dataset.id));
-    tasks = newOrder.filter(Boolean);
-    for (const task of tasks) await saveTaskToDB(task);
+    localStorage.setItem("tasks", JSON.stringify(tasks));
     renderTasks();
-  };
 
-  const resetForm = () => {
     elements.taskForm.reset();
-    elements.addTaskBtn.textContent = localizedMessages[currentLanguage].addTask;
-    elements.addTaskBtn.onclick = addTask;
-    fpInstance.clear(); // Clear Flatpickr selection
+    elements.taskDate._flatpickr.clear();
+    addButton.textContent = translations[document.documentElement.lang].addTask || "Ajouter";
+    addButton.removeAttribute("data-editId");
+    elements.taskForm.onsubmit = addTask;
   };
+}
 
-  const syncThemeWithSystem = () => {
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)");
-    document.documentElement.dataset.theme = localStorage.getItem("theme") || (prefersDark.matches ? "dark" : "light");
-    elements.toggleThemeBtn.querySelector("i").className = document.documentElement.dataset.theme === "dark" ? "fas fa-moon" : "fas fa-sun";
-    updateThemeBackground();
-    prefersDark.addEventListener("change", (e) => {
-      document.documentElement.dataset.theme = e.matches ? "dark" : "light";
-      localStorage.setItem("theme", document.documentElement.dataset.theme);
-      updateThemeBackground();
-    });
-  };
-
-  const updateThemeBackground = () => {
-    const customBg = localStorage.getItem("customBackground");
-    if (customBg) {
-      document.body.classList.add("custom-background");
-      document.body.style.backgroundImage = `url(${customBg})`;
-    } else {
-      document.body.classList.remove("custom-background");
-      document.body.style.backgroundImage = "none";
-      document.body.style.backgroundColor = document.documentElement.dataset.theme === "dark" ? "#000000" : "#ffffff";
-    }
-  };
-
-  const updateThemeColor = (color) => {
-    document.querySelector('meta[name="theme-color"]').setAttribute("content", color);
-    document.documentElement.style.setProperty("--primary-color", color);
-    localStorage.setItem("themeColor", color);
-  };
-
-  const updateFont = (font) => {
-    document.body.classList.remove("custom-font-roboto", "custom-font-arial", "custom-font-montserrat");
-    document.body.classList.add(`custom-font-${font.toLowerCase()}`);
-    localStorage.setItem("font", font);
-  };
-
-  const updateGlassOpacity = (opacity) => {
-    document.documentElement.style.setProperty("--glass-bg", `rgba(255, 255, 255, ${opacity})`);
-    localStorage.setItem("glassOpacity", opacity);
-  };
-
-  const showModal = (msg, onConfirm) => {
-    elements.modalMessage.textContent = msg;
-    elements.modalOverlay.setAttribute("aria-hidden", "false");
-    elements.modalConfirm.onclick = () => {
-      elements.modalOverlay.setAttribute("aria-hidden", "true");
-      if (onConfirm) onConfirm();
-    };
-    elements.modalCancel.onclick = () => elements.modalOverlay.setAttribute("aria-hidden", "true");
-    elements.modalConfirm.style.display = onConfirm ? "inline-block" : "none";
-  };
-
-  const customizeApp = () => {
-    elements.customizeModal.setAttribute("aria-hidden", "false");
-    elements.customThemeColor.value = localStorage.getItem("themeColor") || "#4b5e95";
-    elements.customFont.value = localStorage.getItem("font") || "Roboto";
-    elements.customGlassOpacity.value = localStorage.getItem("glassOpacity") || "0.05";
-    elements.customizeSave.onclick = () => {
-      updateThemeColor(elements.customThemeColor.value);
-      updateFont(elements.customFont.value);
-      updateGlassOpacity(elements.customGlassOpacity.value);
-      if (elements.customBackground.files[0]) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const url = e.target.result;
-          document.body.style.backgroundImage = `url(${url})`;
-          localStorage.setItem("customBackground", url);
-          document.body.classList.add("custom-background");
-        };
-        reader.readAsDataURL(elements.customBackground.files[0]);
-      } else if (!elements.customBackground.value) {
-        localStorage.removeItem("customBackground");
-        updateThemeBackground();
-      }
-      elements.customizeModal.setAttribute("aria-hidden", "true");
-    };
-  };
-
-  const generatePDF = () => {
-    if (tasks.length === 0) return showModal(localizedMessages[currentLanguage].noTasksMessage);
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    
-    doc.setFontSize(16);
-    doc.text(localizedMessages[currentLanguage].title, 10, 10);
-    doc.setFontSize(12);
-
-    const pageWidth = doc.internal.pageSize.getWidth() - 20;
-    let yPosition = 20;
-
-    tasks.forEach((t, i) => {
-      const status = t.completed ? localizedMessages[currentLanguage].completedTasks : localizedMessages[currentLanguage].pendingTasks;
-      const taskText = `${i + 1}. ${t.text} (${status}) - ${new Date(t.date).toLocaleString(currentLanguage, {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit"
-      })}`;
-      const splitText = doc.splitTextToSize(taskText, pageWidth);
-      
-      splitText.forEach((line, lineIndex) => {
-        if (yPosition + 10 > doc.internal.pageSize.getHeight() - 10) {
-          doc.addPage();
-          yPosition = 10;
-        }
-        doc.text(line, 10, yPosition);
-        yPosition += 10;
-      });
-    });
-
-    doc.save("task-list.pdf");
-  };
-
-  const updateLocalization = () => {
-    document.documentElement.lang = currentLanguage;
-    document.documentElement.dir = currentLanguage === "ar" ? "rtl" : "ltr";
-    document.querySelectorAll("[data-i18n]").forEach(el => {
-      el.textContent = localizedMessages[currentLanguage][el.dataset.i18n] || el.dataset.i18n;
-    });
-    document.querySelectorAll("[data-i18n-placeholder]").forEach(el => {
-      el.placeholder = localizedMessages[currentLanguage][el.dataset.i18nPlaceholder] || el.dataset.i18nPlaceholder;
-    });
-    const title = localizedMessages[currentLanguage].title;
-    document.querySelector("h1[data-i18n='title']").textContent = title;
+// Supprimer une tâche
+function deleteTask(id) {
+  showModal(translations[document.documentElement.lang].deleteConfirm || "Voulez-vous supprimer cette tâche ?", () => {
+    tasks = tasks.filter(t => t.id !== id);
+    localStorage.setItem("tasks", JSON.stringify(tasks));
     renderTasks();
-  };
-
-  const localizedMessages = {
-    fr: {
-      title: "SmartFlow",
-      addTask: "Ajouter",
-      update: "Mettre à jour",
-      confirm: "Confirmer",
-      cancel: "Annuler",
-      allTasks: "Tout",
-      pendingTasks: "En cours",
-      completedTasks: "Terminées",
-      downloadPDF: "Télécharger en PDF",
-      clearAll: "Tout Effacer",
-      customize: "Personnalisation",
-      save: "Sauvegarder",
-      lowPriority: "Faible",
-      mediumPriority: "Moyenne",
-      highPriority: "Élevée",
-      work: "Travail",
-      personal: "Personnel",
-      urgent: "Urgent",
-      other: "Autre",
-      noRecurrence: "Aucune",
-      daily: "Quotidien",
-      weekly: "Hebdomadaire",
-      monthly: "Mensuel",
-      addTaskPlaceholder: "Ajouter une tâche...",
-      searchPlaceholder: "Rechercher une tâche...",
-      sortDefault: "Par défaut",
-      sortDateAsc: "Date croissante",
-      sortDateDesc: "Date décroissante",
-      deleteConfirm: "Supprimer cette tâche ?",
-      clearConfirm: "Effacer toutes les tâches ?",
-      maxTasks: "Limite de tâches atteinte !",
-      noTasks: "Aucune tâche trouvée.",
-      noTasksMessage: "Aucune tâche à exporter !",
-      enableNotifications: "Notifications activées",
-      notificationGranted: "Notifications activées !",
-      notificationDenied: "Notifications désactivées !",
-      offlineWarning: "Vous êtes hors ligne."
-    },
-    en: {
-      title: "SmartFlow",
-      addTask: "Add",
-      update: "Update",
-      confirm: "Confirm",
-      cancel: "Cancel",
-      allTasks: "All",
-      pendingTasks: "Pending",
-      completedTasks: "Completed",
-      downloadPDF: "Download as PDF",
-      clearAll: "Clear All",
-      customize: "Customize",
-      save: "Save",
-      lowPriority: "Low",
-      mediumPriority: "Medium",
-      highPriority: "High",
-      work: "Work",
-      personal: "Personal",
-      urgent: "Urgent",
-      other: "Other",
-      noRecurrence: "None",
-      daily: "Daily",
-      weekly: "Weekly",
-      monthly: "Monthly",
-      addTaskPlaceholder: "Add a task...",
-      searchPlaceholder: "Search for a task...",
-      sortDefault: "Default",
-      sortDateAsc: "Date ascending",
-      sortDateDesc: "Date descending",
-      deleteConfirm: "Delete this task?",
-      clearConfirm: "Clear all tasks?",
-      maxTasks: "Task limit reached!",
-      noTasks: "No tasks found.",
-      noTasksMessage: "No tasks to export!",
-      enableNotifications: "Notifications enabled",
-      notificationGranted: "Notifications enabled!",
-      notificationDenied: "Notifications disabled!",
-      offlineWarning: "You are offline."
-    },
-    ar: {
-      title: "تطبيق المهام",
-      addTask: "إضافة",
-      update: "تحديث",
-      confirm: "تأكيد",
-      cancel: "إلغاء",
-      allTasks: "الكل",
-      pendingTasks: "قيد الانتظار",
-      completedTasks: "مكتملة",
-      downloadPDF: "تحميل بصيغة PDF",
-      clearAll: "مسح الكل",
-      customize: "تخصيص",
-      save: "حفظ",
-      lowPriority: "منخفض",
-      mediumPriority: "متوسط",
-      highPriority: "مرتفع",
-      work: "عمل",
-      personal: "شخصي",
-      urgent: "عاجل",
-      other: "آخر",
-      noRecurrence: "لا تكرار",
-      daily: "يومي",
-      weekly: "أسبوعي",
-      monthly: "شهري",
-      addTaskPlaceholder: "أضف مهمة...",
-      searchPlaceholder: "ابحث عن مهمة...",
-      sortDefault: "الافتراضي",
-      sortDateAsc: "التاريخ تصاعدي",
-      sortDateDesc: "التاريخ تنازلي",
-      deleteConfirm: "حذف هذه المهمة؟",
-      clearConfirm: "مسح جميع المهام؟",
-      maxTasks: "تم الوصول إلى الحد الأقصى للمهام!",
-      noTasks: "لا توجد مهام.",
-      noTasksMessage: "لا توجد مهام للتصدير!",
-      enableNotifications: "الإشعارات مفعلة",
-      notificationGranted: "تم تفعيل الإشعارات!",
-      notificationDenied: "تم تعطيل الإشعارات!",
-      offlineWarning: "أنت غير متصل بالإنترنت."
-    },
-  };
-
-  const toggleNotifications = () => {
-    if (!("Notification" in window)) return showModal("Notifications non supportées par ce navigateur.");
-    
-    if (!isNotificationsEnabled) {
-      Notification.requestPermission().then(permission => {
-        if (permission === "granted") {
-          isNotificationsEnabled = true;
-          localStorage.setItem("notifications", "true");
-          elements.notificationsBtn.classList.add("active");
-          elements.notificationsBtn.title = localizedMessages[currentLanguage].notificationGranted;
-          checkOverdueTasks();
-          tasks.forEach(task => !task.completed && scheduleNotification(task));
-        }
-      });
-    } else {
-      isNotificationsEnabled = false;
-      localStorage.setItem("notifications", "false");
-      elements.notificationsBtn.classList.remove("active");
-      elements.notificationsBtn.title = localizedMessages[currentLanguage].notificationDenied;
-      notificationTimeouts.forEach((id) => clearTimeout(id));
-      notificationTimeouts.clear();
-    }
-  };
-
-  const scheduleNotification = (task) => {
-    if (!("Notification" in window) || Notification.permission !== "granted" || !isNotificationsEnabled || task.completed) return;
-    const notificationTime = new Date(task.date).getTime() - 15 * 60 * 1000;
-    if (notificationTime > Date.now()) {
-      const timeoutId = setTimeout(() => {
-        new Notification("Tâche imminente", {
-          body: `${task.text} est due bientôt !`,
-          icon: "/icon.png",
-        });
-        notificationTimeouts.delete(task.id);
-      }, notificationTime - Date.now());
-      notificationTimeouts.set(task.id, timeoutId);
-    }
-  };
-
-  const checkOverdueTasks = () => {
-    if (!("Notification" in window) || Notification.permission !== "granted" || !hasUserInteracted || !isNotificationsEnabled) return;
-    tasks.forEach(task => {
-      if (!task.completed && new Date(task.date) < new Date() && !notificationTimeouts.has(task.id)) {
-        new Notification("Tâche en retard", {
-          body: `${task.text} est en retard !`,
-          icon: "/icon.png",
-        });
-        notificationTimeouts.set(task.id, null);
-      }
-    });
-  };
-
-  const toggleView = () => {
-    currentView = currentView === "list" ? "kanban" : "list";
-    elements.toggleViewBtn.querySelector("i").className = currentView === "list" ? "fas fa-th-list" : "fas fa-columns";
-    renderTasks();
-  };
-
-  const triggerSync = () => {
-    if ('serviceWorker' in navigator && 'SyncManager' in window) {
-      navigator.serviceWorker.ready.then((registration) => {
-        registration.sync.register('sync-tasks')
-          .then(() => console.log('Synchronisation en arrière-plan enregistrée'))
-          .catch((err) => console.error('Échec de l’enregistrement de la synchronisation:', err));
-      });
-    }
-  };
-
-  elements.taskForm.onsubmit = addTask;
-  elements.filterButtons.forEach(btn => {
-    btn.onclick = () => {
-      currentFilter = btn.dataset.filter;
-      elements.filterButtons.forEach(b => b.classList.toggle("active", b === btn));
-      renderTasks();
-    };
   });
-  elements.toggleThemeBtn.onclick = () => {
-    document.documentElement.dataset.theme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
-    localStorage.setItem("theme", document.documentElement.dataset.theme);
-    elements.toggleThemeBtn.querySelector("i").className = document.documentElement.dataset.theme === "dark" ? "fas fa-moon" : "fas fa-sun";
-    updateThemeBackground();
-  };
-  elements.toggleViewBtn.onclick = toggleView;
-  elements.customizeBtn.onclick = customizeApp;
-  elements.downloadPDF.onclick = generatePDF;
-  elements.clearAllBtn.onclick = clearAllTasks;
-  elements.searchInput.oninput = renderTasks;
-  elements.sortSelector.onchange = renderTasks;
-  elements.languageSelector.onchange = (e) => {
-    currentLanguage = e.target.value;
-    localStorage.setItem("language", currentLanguage);
-    updateLocalization();
-  };
-  elements.notificationsBtn.onclick = toggleNotifications;
+}
 
-  const localeMap = {
-    fr: "fr",
-    en: "en",
-    ar: "ar"
+// Afficher une modale de confirmation
+function showModal(message, onConfirm) {
+  elements.modalMessage.textContent = message;
+  elements.modalOverlay.setAttribute("aria-hidden", "false");
+  elements.modalOverlay.querySelector(".modal").classList.remove("error");
+  elements.modalConfirm.style.display = "inline-block";
+  elements.modalCancel.style.display = "inline-block";
+  elements.modalConfirm.textContent = translations[document.documentElement.lang].confirm || "Confirmer";
+  elements.modalCancel.textContent = translations[document.documentElement.lang].cancel || "Annuler";
+  elements.modalConfirm.onclick = () => {
+    onConfirm();
+    elements.modalOverlay.setAttribute("aria-hidden", "true");
   };
+  elements.modalCancel.onclick = () => elements.modalOverlay.setAttribute("aria-hidden", "true");
+}
 
-  let fpInstance = flatpickr(elements.taskDate, {
-    enableTime: true,
-    dateFormat: "d-m-Y H:i",
-    minDate: "today",
-    time_24hr: true,
-    minuteIncrement: 1,
-    onChange: (selectedDates, dateStr) => {
-      elements.taskDate.value = dateStr; // Update input with formatted string
-    },
-    locale: localeMap[currentLanguage]
+// Afficher une modale d'erreur
+function showErrorModal(message) {
+  elements.modalMessage.textContent = message;
+  elements.modalOverlay.setAttribute("aria-hidden", "false");
+  elements.modalOverlay.querySelector(".modal").classList.add("error");
+  elements.modalConfirm.style.display = "none";
+  elements.modalCancel.style.display = "inline-block";
+  elements.modalCancel.textContent = translations[document.documentElement.lang].ok || "OK";
+  elements.modalCancel.onclick = () => elements.modalOverlay.setAttribute("aria-hidden", "true");
+}
+
+// Basculer le thème
+function toggleTheme() {
+  const currentTheme = document.documentElement.dataset.theme || "dark";
+  document.documentElement.dataset.theme = currentTheme === "dark" ? "light" : "dark";
+  elements.toggleTheme.querySelector("i").classList.toggle("fa-moon");
+  elements.toggleTheme.querySelector("i").classList.toggle("fa-sun");
+  localStorage.setItem("theme", document.documentElement.dataset.theme);
+}
+
+// Basculer la vue
+function toggleView() {
+  const currentView = elements.taskList.dataset.view;
+  elements.taskList.dataset.view = currentView === "list" ? "kanban" : "list";
+  elements.toggleView.querySelector("i").classList.toggle("fa-th-list");
+  elements.toggleView.querySelector("i").classList.toggle("fa-columns");
+  if (elements.taskList.dataset.view === "kanban") renderKanban();
+  else renderTasks();
+}
+
+// Rendre en vue Kanban
+function renderKanban() {
+  elements.taskList.innerHTML = `
+    <div class="kanban-columns">
+      <div class="kanban-column"><h3>En cours</h3><ul id="pending-tasks"></ul></div>
+      <div class="kanban-column"><h3>Terminées</h3><ul id="completed-tasks"></ul></div>
+    </div>
+  `;
+  const pendingTasks = document.getElementById("pending-tasks");
+  const completedTasks = document.getElementById("completed-tasks");
+
+  tasks.forEach((task) => {
+    const taskElement = appendTaskToList(task);
+    if (task.completed) completedTasks.appendChild(taskElement);
+    else pendingTasks.appendChild(taskElement);
   });
 
-  elements.calendarIcon = document.querySelector(".calendar-icon");
-  elements.calendarIcon.addEventListener("click", () => {
-    fpInstance.open();
+  Draggable.create(".glass-task", {
+    bounds: "#task-list",
+    onDragEnd: function () {
+      const taskId = parseInt(this.target.dataset.id);
+      const task = tasks.find(t => t.id === taskId);
+      const newParent = this.target.closest("ul").id === "completed-tasks" ? completedTasks : pendingTasks;
+      task.completed = newParent === completedTasks;
+      localStorage.setItem("tasks", JSON.stringify(tasks));
+      renderKanban();
+    },
   });
+}
 
-  elements.languageSelector.addEventListener("change", () => {
-    fpInstance.destroy();
-    fpInstance = flatpickr(elements.taskDate, {
-      enableTime: true,
-      dateFormat: "d-m-Y H:i",
-      minDate: "today",
-      time_24hr: true,
-      minuteIncrement: 1,
-      onChange: (selectedDates, dateStr) => {
-        elements.taskDate.value = dateStr;
-      },
-      locale: localeMap[currentLanguage]
-    });
-  });
+// Activer/Désactiver les notifications
+function toggleNotifications() {
+  if (!("Notification" in window)) {
+    alert("Les notifications ne sont pas supportées par ce navigateur.");
+    return;
+  }
+  notificationsEnabled = !notificationsEnabled;
+  elements.notificationsBtn.querySelector("i").classList.toggle("fa-bell");
+  elements.notificationsBtn.querySelector("i").classList.toggle("fa-bell-slash");
+  if (notificationsEnabled) Notification.requestPermission();
+}
 
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.addEventListener("message", (event) => {
-      if (event.data.type === "TASKS_SYNCED") {
-        tasks = event.data.tasks;
-        renderTasks();
-      }
-    });
+// Notifier
+function notify(title, body) {
+  if (notificationsEnabled && Notification.permission === "granted") {
+    new Notification(title, { body });
+  }
+}
+
+// Recharger la page
+elements.reloadBtn.addEventListener("click", () => location.reload());
+
+// Changer la langue
+elements.languageSelector.addEventListener("change", (e) => {
+  updateLanguage(e.target.value);
+});
+
+// Personnalisation
+function customizeApp() {
+  elements.customizeModal.setAttribute("aria-hidden", "false");
+}
+
+elements.customizeBtnTop.addEventListener("click", customizeApp);
+
+elements.customizeSave.addEventListener("click", () => {
+  const themeColor = elements.customThemeColor.value;
+  const font = elements.customFont.value;
+  const opacity = elements.customGlassOpacity.value;
+  const backgroundFile = elements.customBackground.files[0];
+
+  document.documentElement.style.setProperty("--primary-color", themeColor);
+  document.querySelector('meta[name="theme-color"]').setAttribute("content", themeColor);
+  document.body.style.fontFamily = font;
+  document.documentElement.style.setProperty("--glass-bg", `rgba(255, 255, 255, ${opacity})`);
+  if (backgroundFile) {
+    const reader = new FileReader();
+    reader.onload = (e) => document.body.style.backgroundImage = `url(${e.target.result})`;
+    reader.readAsDataURL(backgroundFile);
   }
 
-  window.addEventListener("offline", () => showModal(localizedMessages[currentLanguage].offlineWarning));
+  localStorage.setItem("customThemeColor", themeColor);
+  localStorage.setItem("customFont", font);
+  localStorage.setItem("customGlassOpacity", opacity);
+  elements.customizeModal.setAttribute("aria-hidden", "true");
+});
 
-  syncThemeWithSystem();
-  loadTasksFromDB();
-  elements.languageSelector.value = currentLanguage;
-  updateLocalization();
-  elements.customThemeColor.value = localStorage.getItem("themeColor") || "#4b5e95";
-  updateFont(localStorage.getItem("font") || "Roboto");
-  updateGlassOpacity(localStorage.getItem("glassOpacity") || "0.05");
-  elements.notificationsBtn.classList.toggle("active", isNotificationsEnabled);
-  elements.notificationsBtn.title = isNotificationsEnabled
-    ? localizedMessages[currentLanguage].notificationGranted
-    : localizedMessages[currentLanguage].notificationDenied;
+// Filtres
+elements.filterButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    elements.filterButtons.forEach((btn) => btn.classList.remove("active"));
+    button.classList.add("active");
+    currentFilter = button.dataset.filter;
+    renderTasks();
+  });
+});
+
+// Recherche
+elements.searchInput.addEventListener("input", renderTasks);
+
+// Tri
+elements.sortSelector.addEventListener("change", (e) => {
+  currentSort = e.target.value;
+  renderTasks();
+});
+
+// Télécharger en PDF avec support pour l'arabe
+elements.downloadPdf.addEventListener("click", () => {
+  if (tasks.length === 0) {
+    showErrorModal(translations[document.documentElement.lang].noTasks || "Aucune tâche à exporter");
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.setFontSize(16);
+
+  // Fonction pour détecter si le texte contient des caractères arabes
+  const isArabicText = (text) => /[\u0600-\u06FF]/.test(text);
+
+  // Titre du document
+  const lang = document.documentElement.lang;
+  const title = translations[lang].title + " - " + (lang === "ar" ? "قائمة المهام" : "Liste des tâches");
+  if (lang === "ar") {
+    doc.text(title, 190, 10, { align: "right" });
+  } else {
+    doc.text(title, 10, 10);
+  }
+
+  let y = 20;
+  tasks.forEach((task, index) => {
+    const status = task.completed ? translations[lang].completedTasks : translations[lang].pendingTasks;
+    const dateText = task.date || (lang === "ar" ? "لا تاريخ" : "Pas de date");
+    const taskText = `${index + 1}. ${task.text} (${dateText}) [${status}]`;
+
+    if (isArabicText(task.text) || lang === "ar") {
+      // Inverser le texte pour RTL et aligner à droite
+      const reversedText = taskText.split("").reverse().join("");
+      doc.text(reversedText, 190, y, { align: "right" });
+    } else {
+      // Texte LTR normal
+      doc.text(taskText, 10, y);
+    }
+    y += 10;
+  });
+
+  doc.save("smartflow_tasks.pdf");
+});
+
+// Effacer tout
+elements.clearAll.addEventListener("click", () => {
+  if (tasks.length === 0) {
+    showErrorModal(translations[document.documentElement.lang].noTasksToClear || "Aucune tâche à effacer");
+    return;
+  }
+  showModal(translations[document.documentElement.lang].clearAllConfirm || "Voulez-vous effacer toutes les tâches ?", () => {
+    tasks = [];
+    localStorage.setItem("tasks", JSON.stringify(tasks));
+    renderTasks();
+  });
+});
+
+// Événements principaux
+elements.taskForm.addEventListener("submit", addTask);
+elements.toggleTheme.addEventListener("click", toggleTheme);
+elements.toggleView.addEventListener("click", toggleView);
+elements.notificationsBtn.addEventListener("click", toggleNotifications);
+
+// Initialisation
+document.addEventListener("DOMContentLoaded", () => {
+  const savedTheme = localStorage.getItem("theme") || "dark";
+  document.documentElement.dataset.theme = savedTheme;
+  if (savedTheme === "light") toggleTheme();
+
+  const savedLang = localStorage.getItem("lang") || "fr";
+  elements.languageSelector.value = savedLang;
+  updateLanguage(savedLang);
+
+  const customThemeColor = localStorage.getItem("customThemeColor");
+  const customFont = localStorage.getItem("customFont");
+  const customGlassOpacity = localStorage.getItem("customGlassOpacity");
+  if (customThemeColor) document.documentElement.style.setProperty("--primary-color", customThemeColor);
+  if (customFont) document.body.style.fontFamily = customFont;
+  if (customGlassOpacity) document.documentElement.style.setProperty("--glass-bg", `rgba(255, 255, 255, ${customGlassOpacity})`);
+
+  renderTasks();
 });

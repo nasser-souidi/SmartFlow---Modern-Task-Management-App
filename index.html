@@ -6,24 +6,29 @@
   <meta name="description" content="Une To-Do List intelligente avec Glassmorphism et support hors ligne">
   <meta name="theme-color" content="#4b5e95">
   <title data-i18n="title">SmartFlow</title>
-  
+
+  <!-- Manifeste pour PWA -->
   <link rel="manifest" href="/manifest.json">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="/node_modules/flatpickr/dist/flatpickr.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Montserrat:wght@400;500;700&display=swap">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
   <link rel="stylesheet" href="/style.css">
+
+  <!-- Icônes -->
   <link rel="icon" href="/icon.png" sizes="192x192">
   <link rel="apple-touch-icon" href="/icon.png">
 
-  <!-- Scripts CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/fr.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ar.js"></script>
+  <!-- Scripts -->
+  <script src="/node_modules/flatpickr/dist/flatpickr.min.js" defer></script>
+  <script src="/node_modules/flatpickr/dist/l10n/fr.js" defer></script>
+  <script src="/node_modules/flatpickr/dist/l10n/ar.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.4/gsap.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.4/Draggable.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 
-  <!-- Service Worker Registration -->
+  <!-- Enregistrement du Service Worker -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -41,8 +46,9 @@
       <div class="header-controls">
         <button id="toggle-theme" title="Mode Sombre/Clair" aria-label="Basculer entre mode sombre et clair"><i class="fas fa-moon"></i></button>
         <button id="toggle-view" title="Changer de vue" aria-label="Changer l'affichage des tâches"><i class="fas fa-th-list"></i></button>
-        <button id="customize-btn" title="Personnaliser" aria-label="Ouvrir les options de personnalisation"><i class="fas fa-paint-brush"></i></button>
         <button id="notifications-btn" title="Activer les notifications" aria-label="Activer/Désactiver les notifications"><i class="fas fa-bell"></i></button>
+        <button id="reload-btn" title="Recharger la page" aria-label="Recharger la page"><i class="fas fa-sync-alt"></i></button>
+        <button id="customize-btn-top" title="Personnaliser" aria-label="Ouvrir les options de personnalisation"><i class="fas fa-paint-brush"></i></button>
         <select id="language-selector" aria-label="Sélectionner la langue">
           <option value="fr">Français</option>
           <option value="en">English</option>
@@ -56,7 +62,7 @@
           <label for="task-input" class="visually-hidden">Ajouter une tâche</label>
           <input type="text" id="task-input" data-i18n-placeholder="addTaskPlaceholder" placeholder="Ajouter une tâche..." maxlength="200" required aria-required="true">
           <div class="date-container">
-            <input type="text" id="task-date" placeholder="Choisir une date/heure..." readonly aria-label="Date et heure de la tâche">
+            <input type="text" id="task-date" data-i18n-placeholder="datePlaceholder" placeholder="Choisir une date/heure..." readonly aria-label="Date et heure de la tâche" required aria-required="true">
             <span class="calendar-icon" aria-label="Ouvrir le calendrier"><i class="fas fa-calendar-alt"></i></span>
           </div>
           <label for="task-priority" class="visually-hidden">Priorité de la tâche</label>
@@ -150,6 +156,7 @@
     </li>
   </template>
 
+  <!-- Script principal -->
   <script src="/script.js" defer></script>
 </body>
 </html>
