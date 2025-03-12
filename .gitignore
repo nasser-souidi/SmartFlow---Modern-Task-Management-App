@@ -1,0 +1,24 @@
+# Ignorer le dossier node_modules (dépendances)
+node_modules/
+
+# Ignorer le fichier de lock des dépendances
+package-lock.json
+
+# Ignorer les fichiers de configuration d'IDE
+.vscode/
+.idea/
+
+# Ignorer les fichiers de logs
+*.log
+# Ignorer le dossier node_modules (dépendances)
+node_modules/
+
+# Ignorer le fichier de lock des dépendances (optionnel)
+package-lock.json
+
+# Ignorer les fichiers de configuration d'IDE
+.vscode/
+.idea/
+
+# Ignorer les fichiers de logs
+*.log
