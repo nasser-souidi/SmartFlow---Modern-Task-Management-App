@@ -428,10 +428,14 @@ elements.downloadPdf.addEventListener("click", () => {
   const isArabicText = (text) => /[\u0600-\u06FF]/.test(text);
   const lang = document.documentElement.lang;
   const title = translations[lang].title + " - " + (lang === "ar" ? "قائمة المهام" : "Liste des tâches");
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const marginLeft = 10;
+  const marginRight = 10;
+  const maxWidth = pageWidth - marginLeft - marginRight;
   if (lang === "ar") {
-    doc.text(title, 190, 10, { align: "right" });
+    doc.text(title, pageWidth - marginRight, 10, { align: "right" });
   } else {
-    doc.text(title, 10, 10);
+    doc.text(title, marginLeft, 10);
   }
   let y = 20;
   tasks.forEach((task, index) => {
@@ -439,12 +443,22 @@ elements.downloadPdf.addEventListener("click", () => {
     const dateText = task.date || (lang === "ar" ? "لا تاريخ" : "Pas de date");
     const taskText = `${index + 1}. ${task.text} (${dateText}) [${status}]`;
     if (isArabicText(task.text) || lang === "ar") {
-      const reversedText = taskText.split("").reverse().join("");
-      doc.text(reversedText, 190, y, { align: "right" });
+      const lines = doc.splitTextToSize(taskText, maxWidth);
+      lines.forEach((line, i) => {
+        doc.text(line, pageWidth - marginRight, y + (i * 10), { align: "right" });
+      });
+      y += lines.length * 10;
     } else {
-      doc.text(taskText, 10, y);
+      const lines = doc.splitTextToSize(taskText, maxWidth);
+      lines.forEach((line, i) => {
+        doc.text(line, marginLeft, y + (i * 10));
+      });
+      y += lines.length * 10;
     }
-    y += 10;
+    if (y > doc.internal.pageSize.getHeight() - 20) {
+      doc.addPage();
+      y = 20;
+    }
   });
   doc.save("smartflow_tasks.pdf");
 });
