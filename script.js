@@ -1,4 +1,3 @@
-// Initialisation des éléments
 const elements = {
   taskForm: document.getElementById("task-form"),
   taskInput: document.getElementById("task-input"),
@@ -30,7 +29,6 @@ const elements = {
   modalCancel: document.getElementById("modal-cancel"),
 };
 
-// Initialisation de Flatpickr avec prise en charge multi-langue
 let fpInstance = flatpickr(elements.taskDate, {
   enableTime: true,
   dateFormat: "Y-m-d H:i",
@@ -47,13 +45,13 @@ let fpInstance = flatpickr(elements.taskDate, {
   },
 });
 
-// Liste des tâches et paramètres
 let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
 let currentFilter = "all";
 let currentSort = "default";
 let notificationsEnabled = false;
+let isEditing = false;
+let editingTaskId = null;
 
-// Traductions de base
 const translations = {
   fr: {
     title: "SmartFlow",
@@ -162,75 +160,78 @@ const translations = {
   },
 };
 
-// Mettre à jour la langue et le calendrier
 function updateLanguage(lang) {
   document.documentElement.lang = lang;
   document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
   fpInstance.set("locale", lang);
   fpInstance.redraw();
-
   const calendarContainer = fpInstance.calendarContainer;
   if (calendarContainer) {
     calendarContainer.style.direction = lang === "ar" ? "rtl" : "ltr";
   }
-
   Object.keys(translations[lang]).forEach((key) => {
     const elementsWithKey = document.querySelectorAll(`[data-i18n="${key}"]`);
     elementsWithKey.forEach((el) => (el.textContent = translations[lang][key]));
     const placeholders = document.querySelectorAll(`[data-i18n-placeholder="${key}"]`);
     placeholders.forEach((el) => el.setAttribute("placeholder", translations[lang][key]));
   });
-
   localStorage.setItem("lang", lang);
   renderTasks();
 }
 
-// Ajouter une tâche
-function addTask(event) {
+function handleFormSubmit(event) {
   event.preventDefault();
   event.stopPropagation();
-
   const taskText = elements.taskInput.value.trim();
   const taskDate = elements.taskDate.value;
   const taskPriority = elements.taskPriority.value;
   const taskCategory = elements.taskCategory.value;
   const taskRecurrence = elements.taskRecurrence.value;
-
   if (!taskText || !taskDate) {
     showErrorModal(translations[document.documentElement.lang].dateRequired || "La date et l'heure sont obligatoires et doivent être dans le futur");
     return;
   }
-
   const selectedDate = new Date(taskDate);
   const now = new Date();
   if (selectedDate <= now) {
     showErrorModal(translations[document.documentElement.lang].dateRequired || "La date et l'heure sont obligatoires et doivent être dans le futur");
     return;
   }
-
-  const task = {
-    id: Date.now(),
-    text: taskText,
-    date: taskDate,
-    priority: taskPriority,
-    category: taskCategory,
-    recurrence: taskRecurrence,
-    completed: false,
-  };
-
-  tasks.push(task);
+  const addButton = elements.taskForm.querySelector("#add-task");
+  if (isEditing) {
+    const task = tasks.find(t => t.id === editingTaskId);
+    if (task) {
+      task.text = taskText;
+      task.date = taskDate;
+      task.priority = taskPriority;
+      task.category = taskCategory;
+      task.recurrence = taskRecurrence;
+    }
+  } else {
+    const task = {
+      id: Date.now(),
+      text: taskText,
+      date: taskDate,
+      priority: taskPriority,
+      category: taskCategory,
+      recurrence: taskRecurrence,
+      completed: false,
+    };
+    tasks.push(task);
+  }
   localStorage.setItem("tasks", JSON.stringify(tasks));
   renderTasks();
-
   elements.taskForm.reset();
   elements.taskDate._flatpickr.clear();
+  addButton.textContent = translations[document.documentElement.lang].addTask || "Ajouter";
+  addButton.removeAttribute("data-editId");
+  isEditing = false;
+  editingTaskId = null;
 }
 
-// Ajouter une tâche à la liste
 function appendTaskToList(task) {
   const template = document.getElementById("task-template").content.cloneNode(true);
   const taskElement = template.querySelector(".glass-task");
-
   taskElement.dataset.id = task.id;
   taskElement.querySelector(".task-priority").textContent = task.priority.charAt(0).toUpperCase();
   taskElement.querySelector(".task-priority").classList.add(`priority-${task.priority}`);
@@ -238,18 +239,14 @@ function appendTaskToList(task) {
   taskElement.querySelector(".task-text").textContent = task.text;
   taskElement.querySelector(".task-category").textContent = translations[document.documentElement.lang][task.category] || task.category;
   taskElement.querySelector(".task-recurrence").textContent = translations[document.documentElement.lang][task.recurrence] || task.recurrence;
-
   if (task.completed) taskElement.classList.add("completed");
   if (task.date && new Date(task.date) < new Date() && !task.completed) taskElement.querySelector(".due-date").classList.add("overdue");
-
   taskElement.querySelector(".toggle-button").addEventListener("click", () => toggleTask(task.id));
   taskElement.querySelector(".edit-button").addEventListener("click", () => editTask(task.id));
   taskElement.querySelector(".delete-button").addEventListener("click", () => deleteTask(task.id));
-
   return taskElement;
 }
 
-// Rendre les tâches
 function renderTasks() {
   elements.taskList.innerHTML = "";
   let filteredTasks = tasks.filter((task) => {
@@ -257,20 +254,16 @@ function renderTasks() {
     if (currentFilter === "pending") return !task.completed;
     if (currentFilter === "completed") return task.completed;
   });
-
   const searchTerm = elements.searchInput.value.toLowerCase();
   filteredTasks = filteredTasks.filter((task) => task.text.toLowerCase().includes(searchTerm));
-
   if (currentSort === "date-asc") {
     filteredTasks.sort((a, b) => new Date(a.date || "9999-12-31") - new Date(b.date || "9999-12-31"));
   } else if (currentSort === "date-desc") {
     filteredTasks.sort((a, b) => new Date(b.date || "0000-01-01") - new Date(a.date || "0000-01-01"));
   }
-
   filteredTasks.forEach((task) => elements.taskList.appendChild(appendTaskToList(task)));
 }
 
-// Basculer l'état d'une tâche
 function toggleTask(id) {
   const task = tasks.find(t => t.id === id);
   if (task) {
@@ -281,59 +274,23 @@ function toggleTask(id) {
   }
 }
 
-// Modifier une tâche
 function editTask(id) {
   const task = tasks.find(t => t.id === id);
   if (!task) return;
-
+  isEditing = true;
+  editingTaskId = id;
   window.scrollTo({ top: 0, behavior: "smooth" });
   elements.taskInput.value = task.text;
   elements.taskInput.focus();
-
   elements.taskDate._flatpickr.setDate(task.date);
   elements.taskPriority.value = task.priority;
   elements.taskCategory.value = task.category;
   elements.taskRecurrence.value = task.recurrence;
-
   const addButton = elements.taskForm.querySelector("#add-task");
   addButton.textContent = translations[document.documentElement.lang].editTask || "Modifier la tâche";
   addButton.dataset.editId = id;
-
-  elements.taskForm.onsubmit = function(event) {
-    event.preventDefault();
-    const newText = elements.taskInput.value.trim();
-    const newDate = elements.taskDate.value;
-
-    if (!newText || !newDate) {
-      showErrorModal(translations[document.documentElement.lang].dateRequired || "La date et l'heure sont obligatoires et doivent être dans le futur");
-      return;
-    }
-
-    const selectedDate = new Date(newDate);
-    const now = new Date();
-    if (selectedDate <= now) {
-      showErrorModal(translations[document.documentElement.lang].dateRequired || "La date et l'heure sont obligatoires et doivent être dans le futur");
-      return;
-    }
-
-    task.text = newText;
-    task.date = newDate;
-    task.priority = elements.taskPriority.value;
-    task.category = elements.taskCategory.value;
-    task.recurrence = elements.taskRecurrence.value;
-
-    localStorage.setItem("tasks", JSON.stringify(tasks));
-    renderTasks();
-
-    elements.taskForm.reset();
-    elements.taskDate._flatpickr.clear();
-    addButton.textContent = translations[document.documentElement.lang].addTask || "Ajouter";
-    addButton.removeAttribute("data-editId");
-    elements.taskForm.onsubmit = addTask;
-  };
 }
 
-// Supprimer une tâche
 function deleteTask(id) {
   showModal(translations[document.documentElement.lang].deleteConfirm || "Voulez-vous supprimer cette tâche ?", () => {
     tasks = tasks.filter(t => t.id !== id);
@@ -342,7 +299,6 @@ function deleteTask(id) {
   });
 }
 
-// Afficher une modale de confirmation
 function showModal(message, onConfirm) {
   elements.modalMessage.textContent = message;
   elements.modalOverlay.setAttribute("aria-hidden", "false");
@@ -358,7 +314,6 @@ function showModal(message, onConfirm) {
   elements.modalCancel.onclick = () => elements.modalOverlay.setAttribute("aria-hidden", "true");
 }
 
-// Afficher une modale d'erreur
 function showErrorModal(message) {
   elements.modalMessage.textContent = message;
   elements.modalOverlay.setAttribute("aria-hidden", "false");
@@ -369,7 +324,6 @@ function showErrorModal(message) {
   elements.modalCancel.onclick = () => elements.modalOverlay.setAttribute("aria-hidden", "true");
 }
 
-// Basculer le thème
 function toggleTheme() {
   const currentTheme = document.documentElement.dataset.theme || "dark";
   document.documentElement.dataset.theme = currentTheme === "dark" ? "light" : "dark";
@@ -378,7 +332,6 @@ function toggleTheme() {
   localStorage.setItem("theme", document.documentElement.dataset.theme);
 }
 
-// Basculer la vue
 function toggleView() {
   const currentView = elements.taskList.dataset.view;
   elements.taskList.dataset.view = currentView === "list" ? "kanban" : "list";
@@ -388,7 +341,6 @@ function toggleView() {
   else renderTasks();
 }
 
-// Rendre en vue Kanban
 function renderKanban() {
   elements.taskList.innerHTML = `
     <div class="kanban-columns">
@@ -398,27 +350,13 @@ function renderKanban() {
   `;
   const pendingTasks = document.getElementById("pending-tasks");
   const completedTasks = document.getElementById("completed-tasks");
-
   tasks.forEach((task) => {
     const taskElement = appendTaskToList(task);
     if (task.completed) completedTasks.appendChild(taskElement);
     else pendingTasks.appendChild(taskElement);
   });
-
-  Draggable.create(".glass-task", {
-    bounds: "#task-list",
-    onDragEnd: function () {
-      const taskId = parseInt(this.target.dataset.id);
-      const task = tasks.find(t => t.id === taskId);
-      const newParent = this.target.closest("ul").id === "completed-tasks" ? completedTasks : pendingTasks;
-      task.completed = newParent === completedTasks;
-      localStorage.setItem("tasks", JSON.stringify(tasks));
-      renderKanban();
-    },
-  });
 }
 
-// Activer/Désactiver les notifications
 function toggleNotifications() {
   if (!("Notification" in window)) {
     alert("Les notifications ne sont pas supportées par ce navigateur.");
@@ -430,34 +368,25 @@ function toggleNotifications() {
   if (notificationsEnabled) Notification.requestPermission();
 }
 
-// Notifier
 function notify(title, body) {
   if (notificationsEnabled && Notification.permission === "granted") {
     new Notification(title, { body });
   }
 }
 
-// Recharger la page
+elements.taskForm.addEventListener("submit", handleFormSubmit);
+elements.toggleTheme.addEventListener("click", toggleTheme);
+elements.toggleView.addEventListener("click", toggleView);
+elements.notificationsBtn.addEventListener("click", toggleNotifications);
 elements.reloadBtn.addEventListener("click", () => location.reload());
-
-// Changer la langue
-elements.languageSelector.addEventListener("change", (e) => {
-  updateLanguage(e.target.value);
-});
-
-// Personnalisation
-function customizeApp() {
-  elements.customizeModal.setAttribute("aria-hidden", "false");
-}
-
-elements.customizeBtnTop.addEventListener("click", customizeApp);
+elements.languageSelector.addEventListener("change", (e) => updateLanguage(e.target.value));
+elements.customizeBtnTop.addEventListener("click", () => elements.customizeModal.setAttribute("aria-hidden", "false"));
 
 elements.customizeSave.addEventListener("click", () => {
   const themeColor = elements.customThemeColor.value;
   const font = elements.customFont.value;
   const opacity = elements.customGlassOpacity.value;
   const backgroundFile = elements.customBackground.files[0];
-
   document.documentElement.style.setProperty("--primary-color", themeColor);
   document.querySelector('meta[name="theme-color"]').setAttribute("content", themeColor);
   document.body.style.fontFamily = font;
@@ -467,14 +396,12 @@ elements.customizeSave.addEventListener("click", () => {
     reader.onload = (e) => document.body.style.backgroundImage = `url(${e.target.result})`;
     reader.readAsDataURL(backgroundFile);
   }
-
   localStorage.setItem("customThemeColor", themeColor);
   localStorage.setItem("customFont", font);
   localStorage.setItem("customGlassOpacity", opacity);
   elements.customizeModal.setAttribute("aria-hidden", "true");
 });
 
-// Filtres
 elements.filterButtons.forEach((button) => {
   button.addEventListener("click", () => {
     elements.filterButtons.forEach((btn) => btn.classList.remove("active"));
@@ -484,30 +411,21 @@ elements.filterButtons.forEach((button) => {
   });
 });
 
-// Recherche
 elements.searchInput.addEventListener("input", renderTasks);
-
-// Tri
 elements.sortSelector.addEventListener("change", (e) => {
   currentSort = e.target.value;
   renderTasks();
 });
 
-// Télécharger en PDF avec support pour l'arabe
 elements.downloadPdf.addEventListener("click", () => {
   if (tasks.length === 0) {
     showErrorModal(translations[document.documentElement.lang].noTasks || "Aucune tâche à exporter");
     return;
   }
-
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   doc.setFontSize(16);
-
-  // Fonction pour détecter si le texte contient des caractères arabes
   const isArabicText = (text) => /[\u0600-\u06FF]/.test(text);
-
-  // Titre du document
   const lang = document.documentElement.lang;
   const title = translations[lang].title + " - " + (lang === "ar" ? "قائمة المهام" : "Liste des tâches");
   if (lang === "ar") {
@@ -515,28 +433,22 @@ elements.downloadPdf.addEventListener("click", () => {
   } else {
     doc.text(title, 10, 10);
   }
-
   let y = 20;
   tasks.forEach((task, index) => {
     const status = task.completed ? translations[lang].completedTasks : translations[lang].pendingTasks;
     const dateText = task.date || (lang === "ar" ? "لا تاريخ" : "Pas de date");
     const taskText = `${index + 1}. ${task.text} (${dateText}) [${status}]`;
-
     if (isArabicText(task.text) || lang === "ar") {
-      // Inverser le texte pour RTL et aligner à droite
       const reversedText = taskText.split("").reverse().join("");
       doc.text(reversedText, 190, y, { align: "right" });
     } else {
-      // Texte LTR normal
       doc.text(taskText, 10, y);
     }
     y += 10;
   });
-
   doc.save("smartflow_tasks.pdf");
 });
 
-// Effacer tout
 elements.clearAll.addEventListener("click", () => {
   if (tasks.length === 0) {
     showErrorModal(translations[document.documentElement.lang].noTasksToClear || "Aucune tâche à effacer");
@@ -549,28 +461,18 @@ elements.clearAll.addEventListener("click", () => {
   });
 });
 
-// Événements principaux
-elements.taskForm.addEventListener("submit", addTask);
-elements.toggleTheme.addEventListener("click", toggleTheme);
-elements.toggleView.addEventListener("click", toggleView);
-elements.notificationsBtn.addEventListener("click", toggleNotifications);
-
-// Initialisation
 document.addEventListener("DOMContentLoaded", () => {
   const savedTheme = localStorage.getItem("theme") || "dark";
   document.documentElement.dataset.theme = savedTheme;
   if (savedTheme === "light") toggleTheme();
-
   const savedLang = localStorage.getItem("lang") || "fr";
   elements.languageSelector.value = savedLang;
   updateLanguage(savedLang);
-
   const customThemeColor = localStorage.getItem("customThemeColor");
   const customFont = localStorage.getItem("customFont");
   const customGlassOpacity = localStorage.getItem("customGlassOpacity");
   if (customThemeColor) document.documentElement.style.setProperty("--primary-color", customThemeColor);
   if (customFont) document.body.style.fontFamily = customFont;
   if (customGlassOpacity) document.documentElement.style.setProperty("--glass-bg", `rgba(255, 255, 255, ${customGlassOpacity})`);
-
   renderTasks();
 });
